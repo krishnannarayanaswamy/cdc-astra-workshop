@@ -1,0 +1,67 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  clusterName: dse-cdc-as-demo
+  serverType: dse
+  serverVersion: "6.8.32"
+  serverImage: "knscassandra/dse-server-cdc:6.8.32"
+  superuserSecretName: cdcdemo-superuser
+  managementApiAuth:
+    insecure: {}
+  size: 3
+  racks:
+    - name: rack1
+    - name: rack2
+    - name: rack3
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: 1
+  podTemplateSpec:
+    securityContext: {}
+    spec:
+      containers:
+      - name: cassandra
+        securityContext: {}
+        env:
+        - name: CDC_PULSAR_SERVICE_URL
+          value: "pulsar+ssl://pulsar-gcp-australiase1.streaming.datastax.com:6651"
+        - name: CDC_PULSAR_AUTH_PLUGIN_CLASS_NAME
+          value: "org.apache.pulsar.client.impl.auth.AuthenticationToken"
+        - name: CDC_PULSAR_AUTH_PARAMS
+          value: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2ODQxMzA4NjMsImlhdCI6MTY3NjM1NDg2MywiaXNzIjoiZGF0YXN0YXgiLCJzdWIiOiJjbGllbnQ7YTZlMDkwNzctN2JiMS00MDlmLWJjZmEtNDI3YzE5NjZiNmM3O2RIZHBkSFJsY25OMGNtVmhiUT09O2RlODA2YjA2YmQiLCJ0b2tlbmlkIjoiZGU4MDZiMDZiZCJ9.R30P6PtQpP4PblhvChXZej-eZAgq9gaDfD861YBQoAfk68mBxQOCKKL-DWTLDIjqfqLSr87LEsUCagzyEjoEEWpCEFFfIJK4ie--TYofT-xI7i-ZmLVeDcBmftS0d-Gmr6CCzKd67J4y2AjqNaKjBCowTMsa9_rZtm7QcV0LgPvt2Y643JndZg-QVR8kFnpnZHU02-pmmyBtLRRjw1OKrXtSPN59p0BravO_3OFGpmdJZTnPHeiB8DG_Rm1h89If8rHzlWssYam-Ehxk0GHnRzlHFwvgLvziHkvs6K-H2peOHlh1ZtglsT-LPcviwsPVMfITbPDIDlG8GZpwkMbZVg"
+        - name: CDC_TOPIC_PREFIX
+          value: "persistent://twitterstream/cdc-demo/events-"
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: server-storage
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  config:
+    cassandra-yaml:
+      num_tokens: 8
+      authenticator: com.datastax.bdp.cassandra.auth.DseAuthenticator
+      authorizer: com.datastax.bdp.cassandra.auth.DseAuthorizer
+      role_manager: com.datastax.bdp.cassandra.auth.DseRoleManager
+      cdc_enabled: true
+      cdc_raw_directory: /var/lib/cassandra/cdc_raw
+      commitlog_sync_period_in_ms: 2000
+      cdc_total_space_in_mb: 4096
+    dse-yaml:
+      authorization_options:
+        enabled: true
+      authentication_options:
+        enabled: true
+        default_scheme: internal
+    jvm-server-options:
+      initial_heap_size: "2G"
+      max_heap_size: "2G"
+      additional-jvm-opts:
+        - "-Ddse.system_distributed_replication_dc_names=dc1"
+        - "-Ddse.system_distributed_replication_per_dc=3"
+        - "-javaagent:/agent-dse4-2.2.3-all.jar"
